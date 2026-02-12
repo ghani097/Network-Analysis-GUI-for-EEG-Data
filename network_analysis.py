@@ -12,6 +12,7 @@ Usage:
 
 import os
 import sys
+from itertools import combinations
 from pathlib import Path
 
 import numpy as np
@@ -134,26 +135,41 @@ class NetworkAnalysis:
         model_result = {'model': None, 'data': subset, 'name': model_name, 'anova': None, 'model_significance': {}}
 
         if HAS_STATSMODELS:
-            try:
-                if self.adjust_baseline and 'PLI_Pre_Value' in subset.columns:
-                    formula = "MeanPLI ~ PLI_Pre_Value + C(Group) * C(Session)"
-                else:
-                    formula = "MeanPLI ~ C(Group) * C(Session)"
+            if self.adjust_baseline and 'PLI_Pre_Value' in subset.columns:
+                formula = "MeanPLI ~ PLI_Pre_Value + C(Group) * C(Session)"
+            else:
+                formula = "MeanPLI ~ C(Group) * C(Session)"
 
+            model = None
+            model_type = None
+
+            # Try mixed-effects model first
+            try:
                 model = smf.mixedlm(
                     formula, data=subset, groups=subset['Participant']
                 ).fit(method='lbfgs', disp=False)
+                model_type = 'mixed'
+            except Exception as e:
+                self._update(f"  Mixed model failed: {e}", None)
+                self._update("  Falling back to OLS model...", None)
 
+            # Fallback to OLS if mixed model failed
+            if model is None:
+                try:
+                    model = smf.ols(formula, data=subset).fit()
+                    model_type = 'ols'
+                except Exception as e:
+                    self._update(f"  OLS model also failed: {e}", None)
+
+            if model is not None:
                 model_result['model'] = model
+                model_result['model_type'] = model_type
 
                 # Extract model statistics
-                self._extract_model_stats(model, model_name, network, freq_band)
+                self._extract_model_stats(model, model_name, network, freq_band, model_type)
 
                 # Extract significance for plotting (session effects and interactions)
                 model_result['model_significance'] = self._extract_plot_significance(model, subset)
-
-            except Exception as e:
-                self._update(f"  Model error: {e}", None)
 
         return model_result
 
@@ -196,14 +212,18 @@ class NetworkAnalysis:
 
         return significance
 
-    def _extract_model_stats(self, model, model_name, network, freq_band):
+    def _extract_model_stats(self, model, model_name, network, freq_band, model_type='mixed'):
         """Extract and store model statistics for Excel export."""
         if model is None:
             return
 
-        # Get fixed effects
-        fe = model.fe_params
-        bse = model.bse_fe
+        # Get fixed effects (different attribute names for mixed vs OLS)
+        if model_type == 'mixed':
+            fe = model.fe_params
+            bse = model.bse_fe
+        else:
+            fe = model.params
+            bse = model.bse
         tvalues = model.tvalues
         pvalues = model.pvalues
 
@@ -257,43 +277,46 @@ class NetworkAnalysis:
         # Get sessions in correct order
         sessions = self._get_session_order(subset['Session'].unique())
 
-        # Between-group contrasts by session
+        # Between-group contrasts by session (pairwise for any number of groups)
         for session in sessions:
             s_data = subset[subset['Session'] == session]
             groups = sorted(s_data['Group'].unique())
 
-            if len(groups) == 2:
-                g1 = s_data[s_data['Group'] == groups[0]]['MeanPLI']
-                g2 = s_data[s_data['Group'] == groups[1]]['MeanPLI']
+            if len(groups) >= 2:
+                for g1_name, g2_name in combinations(groups, 2):
+                    g1 = s_data[s_data['Group'] == g1_name]['MeanPLI']
+                    g2 = s_data[s_data['Group'] == g2_name]['MeanPLI']
 
-                t, p = stats.ttest_ind(g1, g2)
-                diff = g1.mean() - g2.mean()
-                sig = self._get_sig_stars(p)
+                    if len(g1) > 0 and len(g2) > 0:
+                        t, p = stats.ttest_ind(g1, g2)
+                        diff = g1.mean() - g2.mean()
+                        sig = self._get_sig_stars(p)
 
-                # Store significance for plotting (only if significant)
-                if sig and sig != 'ns':
-                    results['significance'][session] = {'p': p, 'stars': sig}
+                        # Store most significant result for plotting at this session
+                        if sig and sig != 'ns':
+                            if session not in results['significance'] or p < results['significance'][session]['p']:
+                                results['significance'][session] = {'p': p, 'stars': sig}
 
-                output_lines.append(f"  {session}: {groups[0]} vs {groups[1]} = {diff:+.4f}, p={p:.4f} {sig}")
-                results['group'].append({
-                    'session': session, 'contrast': f"{groups[0]} - {groups[1]}",
-                    'diff': diff, 't': t, 'p': p
-                })
+                        output_lines.append(f"  {session}: {g1_name} vs {g2_name} = {diff:+.4f}, p={p:.4f} {sig}")
+                        results['group'].append({
+                            'session': session, 'contrast': f"{g1_name} - {g2_name}",
+                            'diff': diff, 't': t, 'p': p
+                        })
 
-                # Store for Excel
-                contrast_stats.append({
-                    'Model': model_name,
-                    'Network': network,
-                    'FrequencyBand': freq_band,
-                    'ContrastType': 'Between-Group',
-                    'Session': session,
-                    'Group': '',
-                    'Contrast': f"{groups[0]} vs {groups[1]}",
-                    'Difference': diff,
-                    't-value': t,
-                    'p-value': p,
-                    'Significance': sig
-                })
+                        # Store for Excel
+                        contrast_stats.append({
+                            'Model': model_name,
+                            'Network': network,
+                            'FrequencyBand': freq_band,
+                            'ContrastType': 'Between-Group',
+                            'Session': session,
+                            'Group': '',
+                            'Contrast': f"{g1_name} vs {g2_name}",
+                            'Difference': diff,
+                            't-value': t,
+                            'p-value': p,
+                            'Significance': sig
+                        })
 
         # Within-group session contrasts
         for group in sorted(subset['Group'].unique()):
@@ -373,8 +396,10 @@ class NetworkAnalysis:
         colors = self._get_group_colors(unique_groups)
         markers = self._get_group_markers(unique_groups)
 
-        # Track max y values for significance marker placement
+        # Track y-range for significance marker placement
         max_y_per_session = {}
+        data_min = None
+        data_max = None
 
         for group in sorted(means['Group'].unique()):
             gdata = means[means['Group'] == group]
@@ -390,24 +415,35 @@ class NetworkAnalysis:
                 label=group, color=color, linewidth=2
             )
 
-            # Track max y for significance markers
+            # Track y-range for significance markers
             for i, session in enumerate(sessions):
                 y_val = gdata[gdata['Session'] == session]['Mean'].values
                 se_val = gdata[gdata['Session'] == session]['SE'].values
                 if len(y_val) > 0 and len(se_val) > 0:
-                    max_y = y_val[0] + se_val[0]
-                    if session not in max_y_per_session or max_y > max_y_per_session[session]:
-                        max_y_per_session[session] = max_y
+                    y_hi = y_val[0] + se_val[0]
+                    y_lo = y_val[0] - se_val[0]
+                    if session not in max_y_per_session or y_hi > max_y_per_session[session]:
+                        max_y_per_session[session] = y_hi
+                    data_min = y_lo if data_min is None else min(data_min, y_lo)
+                    data_max = y_hi if data_max is None else max(data_max, y_hi)
+
+        # Add headroom so significance stars don't collide with the title/axes
+        if data_min is None or data_max is None:
+            data_min, data_max = ax.get_ylim()
+        y_range = max(data_max - data_min, 1e-9)
+        y_top = data_max + y_range * 0.12
+        y_bottom = data_min - y_range * 0.05
+        ax.set_ylim(y_bottom, y_top)
 
         # Add significance markers
-        y_range = ax.get_ylim()[1] - ax.get_ylim()[0]
         for i, session in enumerate(sessions):
             if session in significance:
                 stars = significance[session]['stars']
                 if session in max_y_per_session:
-                    y_pos = max_y_per_session[session] + y_range * 0.05
+                    y_pos = max_y_per_session[session] + y_range * 0.04
                 else:
                     y_pos = ax.get_ylim()[1] - y_range * 0.1
+                y_pos = min(y_pos, ax.get_ylim()[1] - y_range * 0.03)
                 ax.text(i, y_pos, stars, ha='center', va='bottom', fontsize=12, fontweight='bold')
 
         ax.set_xticks(range(len(sessions)))
@@ -475,8 +511,10 @@ class NetworkAnalysis:
                     colors = self._get_group_colors(unique_groups)
                     markers = self._get_group_markers(unique_groups)
 
-                    # Track max y values for significance marker placement
+                    # Track y-range for significance marker placement
                     max_y_per_session = {}
+                    data_min = None
+                    data_max = None
 
                     for group in sorted(means['Group'].unique()):
                         gdata = means[means['Group'] == group]
@@ -491,24 +529,35 @@ class NetworkAnalysis:
                             label=group, color=color, linewidth=1.5
                         )
 
-                        # Track max y for significance markers
+                        # Track y-range for significance markers
                         for idx, session in enumerate(sessions):
                             y_val = gdata[gdata['Session'] == session]['Mean'].values
                             se_val = gdata[gdata['Session'] == session]['SE'].values
                             if len(y_val) > 0 and len(se_val) > 0:
-                                max_y = y_val[0] + se_val[0]
-                                if session not in max_y_per_session or max_y > max_y_per_session[session]:
-                                    max_y_per_session[session] = max_y
+                                y_hi = y_val[0] + se_val[0]
+                                y_lo = y_val[0] - se_val[0]
+                                if session not in max_y_per_session or y_hi > max_y_per_session[session]:
+                                    max_y_per_session[session] = y_hi
+                                data_min = y_lo if data_min is None else min(data_min, y_lo)
+                                data_max = y_hi if data_max is None else max(data_max, y_hi)
+
+                    # Add headroom so significance stars don't collide with the title/axes
+                    if data_min is None or data_max is None:
+                        data_min, data_max = ax.get_ylim()
+                    y_range = max(data_max - data_min, 1e-9)
+                    y_top = data_max + y_range * 0.12
+                    y_bottom = data_min - y_range * 0.05
+                    ax.set_ylim(y_bottom, y_top)
 
                     # Add significance markers
-                    y_range = ax.get_ylim()[1] - ax.get_ylim()[0]
                     for idx, session in enumerate(sessions):
                         if session in significance:
                             stars = significance[session]['stars']
                             if session in max_y_per_session:
-                                y_pos = max_y_per_session[session] + y_range * 0.05
+                                y_pos = max_y_per_session[session] + y_range * 0.04
                             else:
                                 y_pos = ax.get_ylim()[1] - y_range * 0.1
+                            y_pos = min(y_pos, ax.get_ylim()[1] - y_range * 0.03)
                             ax.text(idx, y_pos, stars, ha='center', va='bottom', fontsize=10, fontweight='bold')
 
                     ax.set_xticks(range(len(sessions)))
