@@ -10,6 +10,7 @@ Usage:
     python network_analysis.py --input data.xlsx --output results
 """
 
+import math
 import os
 import sys
 from itertools import combinations
@@ -86,6 +87,12 @@ class NetworkAnalysis:
             raise FileNotFoundError(f"Input file not found: {self.input_file}")
 
         df = pd.read_excel(str(self.input_file))
+
+        # Ensure categorical columns are strings for consistent filtering
+        for col in ['Group', 'Session', 'Network', 'FrequencyTag']:
+            if col in df.columns:
+                df[col] = df[col].astype(str)
+
         self._update(f"Loaded {len(df)} rows", 10)
 
         # Auto-detect groups if not specified
@@ -470,6 +477,10 @@ class NetworkAnalysis:
         # Add headroom so significance stars don't collide with the title/axes
         if data_min is None or data_max is None:
             data_min, data_max = ax.get_ylim()
+        # Guard against NaN/Inf limits (e.g. when all PLI values are NaN)
+        if (math.isnan(data_min) or math.isnan(data_max)
+                or math.isinf(data_min) or math.isinf(data_max)):
+            data_min, data_max = 0.0, 1.0
         y_range = max(data_max - data_min, 1e-9)
         y_top = data_max + y_range * 0.12
         y_bottom = data_min - y_range * 0.05
@@ -584,6 +595,10 @@ class NetworkAnalysis:
                     # Add headroom so significance stars don't collide with the title/axes
                     if data_min is None or data_max is None:
                         data_min, data_max = ax.get_ylim()
+                    # Guard against NaN/Inf limits (e.g. all PLI values NaN)
+                    if (math.isnan(data_min) or math.isnan(data_max)
+                            or math.isinf(data_min) or math.isinf(data_max)):
+                        data_min, data_max = 0.0, 1.0
                     y_range = max(data_max - data_min, 1e-9)
                     y_top = data_max + y_range * 0.12
                     y_bottom = data_min - y_range * 0.05

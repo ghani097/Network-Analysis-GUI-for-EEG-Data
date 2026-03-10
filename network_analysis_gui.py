@@ -351,6 +351,11 @@ class MainWindow(QMainWindow):
         try:
             self.df = pd.read_excel(filepath)
 
+            # Ensure categorical columns are strings for consistent handling
+            for col in ['Group', 'Session', 'Network', 'FrequencyTag']:
+                if col in self.df.columns:
+                    self.df[col] = self.df[col].astype(str)
+
             # Update data info
             self.data_info.setText(f"Loaded: {Path(filepath).name} ({len(self.df)} rows, {len(self.df.columns)} columns)")
             self.data_info.setStyleSheet("font-weight: bold; color: green;")
