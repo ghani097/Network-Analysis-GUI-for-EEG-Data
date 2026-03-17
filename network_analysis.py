@@ -53,14 +53,14 @@ class NetworkAnalysis:
         self.adjust_baseline = adjust_baseline
         self.callback = callback or (lambda msg, pct: print(msg))
 
-        # Defaults
-        self.groups = groups or ["Chiro", "Control"]
-        self.sessions = sessions or ["Pre", "Post", "Post4W"]
-        self.networks = networks or ["DMN", "SN", "CEN"]
-        self.frequency_bands = frequency_bands or ["Alpha", "Beta"]
+        # All of these can be None → auto-detected from data in load_data()
+        self.groups = groups  # resolved in load_data()
+        self.sessions = sessions  # resolved in load_data()
+        self.networks = networks  # resolved in load_data()
+        self.frequency_bands = frequency_bands  # resolved in load_data()
 
-        # Session order - use provided sessions order (dynamic, not hardcoded)
-        self.session_order = list(self.sessions)
+        # Session order - set after sessions are resolved
+        self.session_order = list(self.sessions) if self.sessions else []
 
         self.data = None
         self.results = {}
@@ -86,6 +86,46 @@ class NetworkAnalysis:
 
         df = pd.read_excel(str(self.input_file))
         self._update(f"Loaded {len(df)} rows", 10)
+
+        # Auto-detect groups if not specified
+        data_groups = sorted(df['Group'].dropna().unique().tolist())
+        if self.groups is None or not set(self.groups).intersection(data_groups):
+            if self.groups:
+                self._update(
+                    f"Warning: groups {self.groups} not found in data. "
+                    f"Auto-detecting: {data_groups}", None
+                )
+            self.groups = data_groups
+
+        # Auto-detect sessions / networks / bands from the data when not specified,
+        # or when the user-supplied values have no overlap with the actual data.
+        data_sessions = sorted(df['Session'].dropna().unique().tolist())
+        if self.sessions is None or not set(self.sessions).intersection(data_sessions):
+            if self.sessions:
+                self._update(
+                    f"Warning: sessions {self.sessions} not found in data. "
+                    f"Auto-detecting: {data_sessions}", None
+                )
+            self.sessions = data_sessions
+            self.session_order = list(data_sessions)
+
+        data_networks = sorted(df['Network'].dropna().unique().tolist())
+        if self.networks is None or not set(self.networks).intersection(data_networks):
+            if self.networks:
+                self._update(
+                    f"Warning: networks {self.networks} not found in data. "
+                    f"Auto-detecting: {data_networks}", None
+                )
+            self.networks = data_networks
+
+        data_bands = sorted(df['FrequencyTag'].dropna().unique().tolist())
+        if self.frequency_bands is None or not set(self.frequency_bands).intersection(data_bands):
+            if self.frequency_bands:
+                self._update(
+                    f"Warning: bands {self.frequency_bands} not found in data. "
+                    f"Auto-detecting: {data_bands}", None
+                )
+            self.frequency_bands = data_bands
 
         # Filter data
         df = df[df['Group'].isin(self.groups)]
@@ -699,12 +739,14 @@ def main():
                         help='Output directory')
     parser.add_argument('--no-baseline', action='store_true',
                         help='Disable baseline adjustment')
-    parser.add_argument('--groups', nargs='+', default=['Chiro', 'Control'],
-                        help='Groups to include')
-    parser.add_argument('--networks', nargs='+', default=['DMN', 'SN', 'CEN'],
-                        help='Networks to analyze')
-    parser.add_argument('--bands', nargs='+', default=['Alpha', 'Beta'],
-                        help='Frequency bands')
+    parser.add_argument('--groups', nargs='+', default=None,
+                        help='Groups to include (default: auto-detect from data)')
+    parser.add_argument('--sessions', nargs='+', default=None,
+                        help='Sessions to include (default: auto-detect from data)')
+    parser.add_argument('--networks', nargs='+', default=None,
+                        help='Networks to analyze (default: auto-detect from data)')
+    parser.add_argument('--bands', nargs='+', default=None,
+                        help='Frequency bands (default: auto-detect from data)')
 
     args = parser.parse_args()
 
@@ -713,6 +755,7 @@ def main():
         output_dir=args.output,
         adjust_baseline=not args.no_baseline,
         groups=args.groups,
+        sessions=args.sessions,
         networks=args.networks,
         frequency_bands=args.bands
     )

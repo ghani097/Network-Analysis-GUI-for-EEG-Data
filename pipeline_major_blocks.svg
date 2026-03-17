@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1150" height="1600" viewBox="0 0 1150 1600">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#333"/>
+    </marker>
+    <style>
+      .title { font: 700 28px Arial, sans-serif; fill: #222; }
+      .txt { font: 16px Arial, sans-serif; fill: #222; }
+      .small { font: 14px Arial, sans-serif; fill: #222; }
+      .box { fill: #f7f7f7; stroke: #333; stroke-width: 2; rx: 10; }
+      .diamond { fill: #f7f7f7; stroke: #333; stroke-width: 2; }
+      .line { stroke: #333; stroke-width: 2.2; fill: none; marker-end: url(#arrow); }
+      .loop { fill: #fff8dc; stroke: #666; stroke-width: 1.5; stroke-dasharray: 6 4; rx: 10; }
+    </style>
+  </defs>
+
+  <text x="575" y="45" text-anchor="middle" class="title">EEG PLI Network Analysis Pipeline (Major Blocks)</text>
+
+  <circle cx="575" cy="85" r="11" fill="#333"/>
+
+  <rect x="355" y="120" width="440" height="65" class="box"/>
+  <text x="575" y="160" text-anchor="middle" class="txt">Load Excel PLI dataset</text>
+
+  <rect x="355" y="225" width="440" height="90" class="box"/>
+  <text x="575" y="265" text-anchor="middle" class="txt">Apply user selections</text>
+  <text x="575" y="290" text-anchor="middle" class="small">Group, Session, Network, Frequency</text>
+
+  <polygon points="575,355 725,420 575,485 425,420" class="diamond"/>
+  <text x="575" y="425" text-anchor="middle" class="txt">Baseline adjustment ON?</text>
+
+  <rect x="355" y="525" width="440" height="85" class="box"/>
+  <text x="575" y="560" text-anchor="middle" class="txt">Compute baseline covariate</text>
+  <text x="575" y="585" text-anchor="middle" class="small">first session (e.g., Pre)</text>
+
+  <rect x="355" y="640" width="440" height="60" class="box"/>
+  <text x="575" y="678" text-anchor="middle" class="txt">Merge baseline into dataset</text>
+
+  <rect x="355" y="730" width="440" height="60" class="box"/>
+  <text x="575" y="768" text-anchor="middle" class="txt">Exclude baseline session from outcomes</text>
+
+  <rect x="250" y="830" width="650" height="320" class="loop"/>
+  <text x="575" y="860" text-anchor="middle" class="txt">Repeat for each Network x Frequency combination</text>
+
+  <rect x="355" y="885" width="440" height="70" class="box"/>
+  <text x="575" y="925" text-anchor="middle" class="txt">Fit mixed-effects model</text>
+  <text x="575" y="945" text-anchor="middle" class="small">MeanPLI ~ Group * Session (+ baseline if used)</text>
+
+  <rect x="355" y="980" width="440" height="55" class="box"/>
+  <text x="575" y="1014" text-anchor="middle" class="txt">Compute means and SE + run contrasts</text>
+
+  <rect x="355" y="1060" width="440" height="70" class="box"/>
+  <text x="575" y="1098" text-anchor="middle" class="txt">Generate per-combo plot</text>
+  <text x="575" y="1118" text-anchor="middle" class="small">with significance markers</text>
+
+  <rect x="355" y="1195" width="440" height="62" class="box"/>
+  <text x="575" y="1232" text-anchor="middle" class="txt">Export statistics workbook (XLSX)</text>
+
+  <rect x="355" y="1285" width="440" height="62" class="box"/>
+  <text x="575" y="1322" text-anchor="middle" class="txt">Export combined figure (PNG)</text>
+
+  <rect x="355" y="1375" width="440" height="62" class="box"/>
+  <text x="575" y="1412" text-anchor="middle" class="txt">Export summary table (CSV)</text>
+
+  <circle cx="575" cy="1490" r="12" fill="#333"/>
+
+  <path d="M575 96 L575 120" class="line"/>
+  <path d="M575 185 L575 225" class="line"/>
+  <path d="M575 315 L575 355" class="line"/>
+
+  <path d="M575 485 L575 525" class="line"/>
+  <text x="595" y="510" class="small">Yes</text>
+
+  <path d="M725 420 L885 420 L885 920 L795 920" class="line"/>
+  <text x="815" y="410" class="small">No</text>
+
+  <path d="M575 610 L575 640" class="line"/>
+  <path d="M575 700 L575 730" class="line"/>
+  <path d="M575 790 L575 885" class="line"/>
+
+  <path d="M575 955 L575 980" class="line"/>
+  <path d="M575 1035 L575 1060" class="line"/>
+  <path d="M575 1130 L575 1195" class="line"/>
+  <path d="M575 1257 L575 1285" class="line"/>
+  <path d="M575 1347 L575 1375" class="line"/>
+  <path d="M575 1437 L575 1478" class="line"/>
+</svg>

@@ -1,0 +1,42 @@
+@startuml
+title EEG PLI Network Analysis Pipeline (Major Blocks)
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #F7F7F7
+  BorderColor #333333
+  ArrowColor #333333
+}
+start
+
+:Load Excel PLI dataset;
+:Apply user selections
+(Group, Session, Network, Frequency);
+
+if (Baseline adjustment ON?) then (Yes)
+  :Compute baseline covariate
+(from first session, e.g., Pre);
+  :Merge baseline into dataset;
+  :Exclude baseline session from outcomes;
+endif
+
+while (More Network x Frequency combos?) is (Yes)
+  :Subset data for current combo;
+  :Fit mixed-effects model
+(MeanPLI ~ Group * Session [+ baseline]);
+  :Compute group means and SE;
+  :Run contrasts
+(between-group and within-group);
+  :Generate per-combo plot
+(with significance markers);
+  :Store model stats and plot data;
+endwhile (No)
+
+:Export statistics workbook
+(analysis_statistics.xlsx);
+:Export combined figure
+(combined_results.png);
+:Export summary table
+(summary.csv);
+
+stop
+@enduml

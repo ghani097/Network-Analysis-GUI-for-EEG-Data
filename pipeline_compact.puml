@@ -1,0 +1,19 @@
+@startuml
+title EEG PLI Analysis Pipeline (Compact)
+left to right direction
+skinparam shadowing false
+skinparam defaultTextAlignment center
+skinparam rectangle {
+  BackgroundColor #F7F7F7
+  BorderColor #333333
+  RoundCorner 8
+}
+
+rectangle "Input Excel\n(PLI data)" as A
+rectangle "Selection + Optional\nBaseline Adjustment" as B
+rectangle "Iterative Analysis\n(Network x Frequency)\nMixed Model + Contrasts" as C
+rectangle "Visualization\n(Per-combo + Combined)" as D
+rectangle "Export Results\nExcel + CSV + PNG" as E
+
+A --> B --> C --> D --> E
+@enduml
