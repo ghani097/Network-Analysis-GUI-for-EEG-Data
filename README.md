@@ -6,10 +6,12 @@ A graphical interface for analyzing Phase Lag Index (PLI) data across brain netw
 
 - Load PLI data from Excel files
 - Baseline adjustment (ANCOVA) with Pre-session as covariate
-- Mixed-effects modeling with statsmodels
-- Between-group and within-session contrasts
-- Automatic visualization with significance markers
+- Mixed-effects modeling with automatic OLS fallback
+- Pairwise between-group contrasts (supports any number of groups)
+- Within-session contrasts
+- Automatic visualization with significance markers and adaptive y-axis scaling
 - Export results to Excel and CSV
+- Methodology documentation and analysis pipeline diagram included
 
 ## Installation
 
@@ -57,6 +59,12 @@ The analysis generates:
 - Combined results figure (`combined_results.png`)
 - Statistics Excel file (`analysis_statistics.xlsx`)
 - Summary CSV (`summary.csv`)
+
+## Documentation
+
+- `METHOD.md` / `METHOD.pdf` - Detailed methodology write-up suitable for publications
+- `pipeline_diagram.svg` - Visual overview of the analysis pipeline
+- `render_diagram.py` - Script to regenerate the pipeline diagram from `pipeline_diagram.puml`
 
 ## Requirements
 

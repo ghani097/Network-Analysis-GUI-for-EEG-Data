@@ -1,0 +1,115 @@
+@startuml PLI_Analysis_Pipeline
+
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam ArrowThickness 2
+skinparam RoundCorner 10
+
+skinparam activity {
+    BackgroundColor #E8F4FD
+    BorderColor #2C5282
+    FontColor #1A365D
+    DiamondBackgroundColor #FED7AA
+    DiamondBorderColor #C05621
+}
+
+skinparam partition {
+    BackgroundColor #F7FAFC
+    BorderColor #4A5568
+    FontColor #2D3748
+    FontSize 14
+    FontStyle bold
+}
+
+skinparam note {
+    BackgroundColor #FFFBEB
+    BorderColor #D69E2E
+    FontSize 10
+}
+
+title **PLI Network Analysis Pipeline**\nPhase Lag Index Statistical Analysis Workflow
+
+|#E6F3FF|Data Preprocessing|
+start
+:**Load Raw Data**\n//Excel file with PLI values//;
+
+:**Filter Dataset**;
+note right
+  **Selection Criteria:**
+  - Groups (Chiro, Control)
+  - Sessions (Pre, Post, Post4W)
+  - Networks (DMN, SN, CEN)
+  - Frequency Bands (Alpha, Beta)
+end note
+
+:**Calculate Baseline**\n//Mean PLI from Pre session//\n//per participant/network/band//;
+
+:**Exclude Pre Session**\nfrom Main Analysis;
+
+|#E6FFED|Statistical Analysis|
+:**Iterate Over**\nNetwork x Frequency Band;
+
+partition "**Linear Mixed-Effects Model**" {
+    :**Define Model**;
+    note right
+      **Model Specification:**
+      DV: MeanPLI
+      Fixed: Group + Session +
+             Group x Session +
+             Baseline (covariate)
+      Random: Participant (intercept)
+    end note
+
+    :**Fit Model**\n//LBFGS optimization//;
+
+    :**Evaluate Fixed Effects**\n//Main effects & interactions//;
+}
+
+|#FFF5E6|Post-Hoc Analysis|
+fork
+    :**Between-Group**\n**Contrasts**;
+    note right
+      Independent t-tests
+      comparing groups
+      at each session
+    end note
+fork again
+    :**Within-Group**\n**Contrasts**;
+    note left
+      Independent t-tests
+      comparing sessions
+      within each group
+    end note
+end fork
+
+:**Apply Significance**\n**Threshold** (p < 0.05);
+
+|#F5E6FF|Visualization & Reporting|
+fork
+    :**Generate Line Plots**;
+    note right
+      - Mean PLI per group/session
+      - Error bars (SE)
+      - Significance markers
+        (* p<.05, ** p<.01, *** p<.001)
+    end note
+fork again
+    :**Export to Excel**;
+    note left
+      - Fixed effects estimates
+      - P-values
+      - Post-hoc contrasts
+    end note
+end fork
+
+:**Create Combined**\n**Grid Figure**;
+
+:**Save All Outputs**;
+
+stop
+
+footer Methods: pandas, numpy, statsmodels, scipy | Visualization: matplotlib
+
+@enduml
