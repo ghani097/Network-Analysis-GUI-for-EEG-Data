@@ -2,6 +2,8 @@
 
 A graphical interface for analyzing Phase Lag Index (PLI) data across brain networks using mixed-effects models.
 
+> **Latest Update:** Bug fix for non-string Session/Group values in Excel data; added APA report generator, brain figure generator, and updated methodology documentation.
+
 ## Features
 
 - Load PLI data from Excel files
@@ -12,6 +14,9 @@ A graphical interface for analyzing Phase Lag Index (PLI) data across brain netw
 - Automatic visualization with significance markers and adaptive y-axis scaling
 - Export results to Excel and CSV
 - Methodology documentation and analysis pipeline diagram included
+- **APA-formatted report generation** (`generate_apa_report.py`)
+- **Brain figure generation** (`generate_brain_figure.py`)
+- Robust handling of non-string Session/Group values in Excel input
 
 ## Installation
 
@@ -50,7 +55,7 @@ The input Excel file should contain the following columns:
 - `FrequencyTag` - Frequency band (e.g., "Alpha", "Beta")
 - `MeanPLI` - Mean Phase Lag Index value
 
-A test data file is included in `test_data/PLI-UK-Both-Groups-UP3.xlsx`.
+Test data files are included in `test_data/` (including `modified_data.xlsx`). Updated PLI data is available in `Data/PLI_UPDATED.xlsx`.
 
 ## Output
 
@@ -62,7 +67,9 @@ The analysis generates:
 
 ## Documentation
 
-- `METHOD.md` / `METHOD.pdf` - Detailed methodology write-up suitable for publications
+- `METHOD.docx` / `METHOD.md` / `METHOD.pdf` - Detailed methodology write-up suitable for publications (updated)
+- `generate_apa_report.py` - Generate APA-formatted results report
+- `generate_brain_figure.py` - Generate brain topography figures
 - `pipeline_diagram.svg` - Visual overview of the analysis pipeline
 - `render_diagram.py` - Script to regenerate the pipeline diagram from `pipeline_diagram.puml`
 
