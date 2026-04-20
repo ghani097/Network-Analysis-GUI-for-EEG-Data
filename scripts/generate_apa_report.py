@@ -452,6 +452,12 @@ _run(p,
      "Differences, Lower Cervical Adjustment, and Upper Cervical Adjustment")
 
 # Build rows for each category
+def _fmt_d(val):
+    try:
+        return f"{float(val):.2f}"
+    except (TypeError, ValueError):
+        return "—"
+
 def _between_row(r):
     return {
         "Category": "Group A vs. B",
@@ -463,6 +469,7 @@ def _between_row(r):
         "DeltaM":   f"{r['Difference']:.3f}",
         "t":        f"{r['t-value']:.2f}",
         "p":        f"{r['p-value']:.3f}{r['Significance']}",
+        "d":        _fmt_d(r.get("Cohens_d")),
     }
 
 def _within_row(r, label):
@@ -480,6 +487,7 @@ def _within_row(r, label):
         "DeltaM":   f"{abs(diff):.3f}",
         "t":        f"{abs(r['t-value']):.2f}",
         "p":        f"{r['p-value']:.3f}{r['Significance']}",
+        "d":        _fmt_d(r.get("Cohens_d")),
     }
 
 rows_t2 = (
@@ -489,7 +497,7 @@ rows_t2 = (
 )
 
 HEADERS = ["Contrast Type", "Network", "Band", "Session / Contrast",
-           "Group", "Direction", "|ΔM|", "t", "p"]
+           "Group", "Direction", "|ΔM|", "t", "p", "d"]
 n2c = len(HEADERS)
 n2r = 1 + len(rows_t2)
 
@@ -507,8 +515,8 @@ for c in hr.cells:
 for ci, h in enumerate(HEADERS):
     cell = hr.cells[ci]
     p    = cell.paragraphs[0]; p.clear()
-    # Make t and p italic
-    if h in ("t", "p"):
+    # Make t, p, and d italic
+    if h in ("t", "p", "d"):
         _run(p, h, bold=True, italic=True, size=10)
     elif h == "|ΔM|":
         _run(p, "|Δ", bold=True, size=10)
@@ -519,8 +527,8 @@ for ci, h in enumerate(HEADERS):
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
 # Data rows
-FIELD_ORDER = ["Category","Network","Band","Session","Group","Direction","DeltaM","t","p"]
-CENTER_COLS  = {1, 2, 6, 7, 8}   # Network, Band, |ΔM|, t, p
+FIELD_ORDER = ["Category","Network","Band","Session","Group","Direction","DeltaM","t","p","d"]
+CENTER_COLS  = {1, 2, 6, 7, 8, 9}   # Network, Band, |ΔM|, t, p, d
 
 for ri, rd in enumerate(rows_t2):
     row = tbl2.rows[ri + 1]
@@ -537,9 +545,9 @@ for c in tbl2.rows[-1].cells:
 
 # Column widths
 _set_col_widths(tbl2, [
-    Inches(0.90), Inches(0.55), Inches(0.50),
-    Inches(0.85), Inches(0.70), Inches(1.00),
-    Inches(0.50), Inches(0.50), Inches(0.60),
+    Inches(0.85), Inches(0.50), Inches(0.45),
+    Inches(0.80), Inches(0.65), Inches(0.95),
+    Inches(0.45), Inches(0.45), Inches(0.55), Inches(0.45),
 ])
 _tbl_cell_fmt(tbl2)
 
@@ -552,8 +560,19 @@ _run(p, "|Δ", size=10)
 _run(p, "M", italic=True, size=10)
 _run(p,
      "| = absolute mean difference. Between-group contrasts compare Group A "
-     "versus Group B at the specified session. Within-group contrasts compare "
-     "connectivity before and after the respective adjustment within each group. "
+     "versus Group B at the specified session; effect size ", size=10)
+_run(p, "d", italic=True, size=10)
+_run(p,
+     " = Cohen's ", size=10)
+_run(p, "d", italic=True, size=10)
+_run(p,
+     " (pooled SD). Within-group contrasts compare connectivity before and "
+     "after the respective adjustment within each group; effect size ", size=10)
+_run(p, "d", italic=True, size=10)
+_run(p, " = ", size=10)
+_run(p, "d", italic=True, size=10)
+_run(p,
+     "\u1D6A (mean difference / SD of differences). "
      "LC = Lower Cervical; UC = Upper Cervical. *",
      size=10)
 _run(p, "p", italic=True, size=10)

@@ -11,6 +11,7 @@ Usage:
 import os
 import sys
 import threading
+import re
 from pathlib import Path
 
 from PyQt5.QtWidgets import (
@@ -49,6 +50,7 @@ class AnalysisWorker(QThread):
                 input_file=self.config['input_file'],
                 output_dir=self.config['output_dir'],
                 adjust_baseline=self.config['adjust_baseline'],
+                plot_type=self.config['plot_type'],
                 groups=self.config['groups'],
                 sessions=self.config['sessions'],
                 networks=self.config['networks'],
@@ -65,6 +67,8 @@ class AnalysisWorker(QThread):
 
 class MainWindow(QMainWindow):
     """Main application window."""
+
+    INVALID_FOLDER_CHARS = r'[<>:"/\\|?*]'
 
     def __init__(self):
         super().__init__()
@@ -177,6 +181,10 @@ class MainWindow(QMainWindow):
         self.baseline_check.stateChanged.connect(self._on_baseline_change)
         opt_layout.addWidget(self.baseline_check)
 
+        self.line_plot_check = QCheckBox("Use Line Plots")
+        self.line_plot_check.setChecked(False)
+        opt_layout.addWidget(self.line_plot_check)
+
         self.baseline_info = QLabel("Pre session used as covariate")
         self.baseline_info.setStyleSheet("color: green; font-style: italic;")
         opt_layout.addWidget(self.baseline_info)
@@ -188,6 +196,12 @@ class MainWindow(QMainWindow):
         self.output_edit = QLineEdit("analysis_output")
         self.output_edit.setMaximumWidth(200)
         opt_layout.addWidget(self.output_edit)
+
+        opt_layout.addWidget(QLabel("Run Folder:"))
+        self.run_folder_edit = QLineEdit()
+        self.run_folder_edit.setPlaceholderText("Enter subfolder name")
+        self.run_folder_edit.setMaximumWidth(220)
+        opt_layout.addWidget(self.run_folder_edit)
 
         options_layout.addWidget(opt_group)
 
@@ -536,7 +550,35 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Warning", "Select at least one frequency band.")
             return False
 
+        base_output = self.output_edit.text().strip()
+        if not base_output:
+            QMessageBox.warning(self, "Warning", "Please enter an output folder.")
+            return False
+
+        run_folder = self.run_folder_edit.text().strip()
+        if not run_folder:
+            QMessageBox.warning(self, "Warning", "Please enter a run folder name.")
+            return False
+
+        if re.search(self.INVALID_FOLDER_CHARS, run_folder):
+            QMessageBox.warning(
+                self,
+                "Warning",
+                'Run folder name contains invalid characters.\nAvoid: <>:"/\\\\|?*'
+            )
+            return False
+
+        if run_folder in {".", ".."}:
+            QMessageBox.warning(self, "Warning", "Run folder name must be a normal folder name.")
+            return False
+
         return True
+
+    def _get_output_path(self):
+        """Build the final output path from base folder and run folder."""
+        base_output = Path(self.output_edit.text().strip())
+        run_folder = self.run_folder_edit.text().strip()
+        return base_output / run_folder
 
     def _log(self, msg):
         """Add message to log."""
@@ -560,11 +602,14 @@ class MainWindow(QMainWindow):
         # Clear log
         self.log_text.clear()
 
+        output_path = self._get_output_path()
+
         # Prepare config
         config = {
             'input_file': self.input_edit.text(),
-            'output_dir': self.output_edit.text(),
+            'output_dir': str(output_path),
             'adjust_baseline': self.baseline_check.isChecked(),
+            'plot_type': 'line' if self.line_plot_check.isChecked() else 'bar',
             'groups': self._get_selected(self.group_checks),
             'sessions': self._get_selected(self.session_checks),
             'networks': self._get_selected(self.network_checks),
@@ -575,8 +620,11 @@ class MainWindow(QMainWindow):
         self._log("Starting Analysis")
         self._log("=" * 50)
         self._log(f"Input: {config['input_file']}")
+        self._log(f"Output Base: {self.output_edit.text().strip()}")
+        self._log(f"Run Folder: {self.run_folder_edit.text().strip()}")
         self._log(f"Output: {config['output_dir']}")
         self._log(f"Baseline: {'Yes' if config['adjust_baseline'] else 'No'}")
+        self._log(f"Plot Type: {config['plot_type']}")
         self._log(f"Groups: {', '.join(config['groups'])}")
         self._log(f"Networks: {', '.join(config['networks'])}")
         self._log(f"Frequencies: {', '.join(config['frequency_bands'])}")
@@ -613,7 +661,8 @@ class MainWindow(QMainWindow):
 
     def _open_output(self):
         """Open the output folder."""
-        path = Path(self.output_edit.text())
+        run_folder = self.run_folder_edit.text().strip()
+        path = self._get_output_path() if run_folder else Path(self.output_edit.text().strip())
         if path.exists():
             if sys.platform == 'win32':
                 os.startfile(str(path))
